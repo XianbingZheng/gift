@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <!-- 移动端优化 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>肖邦的唱片机</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background: #f2ebe5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;  /* 让内容垂直排列 */
+            align-items: center;
+            justify-content: center;
+            font-family: 'Helvetica Neue', sans-serif;
+            padding: 20px;
+        }
+        .player {
+            position: relative;
+            width: 90vw;
+            max-width: 400px;
+            margin: 20px auto;
+        }
+        .record-container {
+            position: relative;
+            width: 100%;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+
+        }
+        .record {
+            width: 100%;
+            display: block;
+            border-radius: 50%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            transition: box-shadow 0.2s;
+        }
+        /* 旋转动画 */
+        .record.spin {
+            animation: spin 8s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .tonearm {
+            position: absolute;
+            top: -7%;               /* 根据你的唱臂图片微调 */
+            right: 0%;
+            width: 45%;
+            transform-origin: top right;
+            transition: transform 0.3s ease;
+            z-index: 10;
+            pointer-events: none;    /* 让点击穿透到唱片 */
+        }
+        .tonearm img {
+            width: 100%;
+            display: block;
+        }
+        .tonearm.up {
+            transform: rotate(-20deg);
+        }
+        .tonearm.down {
+            transform: rotate(0deg);
+        }
+        .hint {
+            text-align: center;
+            margin-top: 15px;
+            color: #8b6b4d;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+        }
+        /* 测试按钮样式（调试完成后可以删除） */
+        #testBtn {
+            margin-top: 30px;
+            padding: 12px 24px;
+            background-color: #b87333;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #testBtn:active {
+            background-color: #9e5e29;
+        }
+        audio {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="player">
+        <div class="record-container" id="recordContainer">
+            <!-- 唱片图片（请替换成你的图片） -->
+            <img src="11.png" alt="黑胶唱片" class="record" id="record">
+            <!-- 唱臂图片（请替换成你的图片） -->
+            <div class="tonearm up" id="tonearm">
+                <img src="21.png" alt="唱臂">
+            </div>
+        </div>
+        <div class="hint">🎵 点击唱片，听肖邦</div>
+    </div>
+
+
+    <!-- 隐藏的音频播放器 -->
+    <audio id="audioPlayer"  preload="auto"></audio>
+
+    <script>
+        // ================== 播放列表（请修改成你的实际文件名） ==================
+        const playlist = [
+            '01-nocturne.mp3',   // 夜曲
+            '02-etude.mp3',      // 练习曲
+            '03-sonata.mp3',     // 肖奏三第三乐章
+            '04-prelude.mp3'     // 前奏曲
+        ];
+
+        let currentTrack = 0;          // 当前播放索引
+        let isPlaying = false;          // 播放状态
+
+        const audio = document.getElementById('audioPlayer');
+        const record = document.getElementById('record');
+        const tonearm = document.getElementById('tonearm');
+        const recordContainer = document.getElementById('recordContainer');
+
+        // 初始化第一首
+        audio.src = playlist[currentTrack];
+
+        // ================== 预加载下一首（优化） ==================
+        // 当第一首开始播放时，预加载下一首
+        audio.addEventListener('playing', function() {
+            // 预加载下一首（如果有）
+            if (playlist.length > 1) {
+                const nextIndex = (currentTrack + 1) % playlist.length;
+                const nextAudio = new Audio();
+                nextAudio.src = playlist[nextIndex];
+                nextAudio.preload = 'auto';  // 提示浏览器预加载
+                // 不播放，只是预加载
+            }
+        });
+
+        // ================== 音频结束，自动切下一首 ==================
+        audio.addEventListener('ended', function() {
+   	 // 下一首（循环）
+    	currentTrack = (currentTrack + 1) % playlist.length;
+ 
+    	audio.src = playlist[currentTrack];
+   	audio.play().catch(e => {
+        		console.error('自动播放下一首失败', e);
+        		// 如果自动播放失败，至少让唱臂抬起，唱片停止
+       		isPlaying = false;
+       		tonearm.classList.add('up');
+       		tonearm.classList.remove('down');
+        		record.style.animationPlayState = 'paused';
+   	 });
+        });
+
+        // ================== 点击唱片播放/暂停 ==================
+        recordContainer.addEventListener('click', function() {
+            if (isPlaying) {
+                // 暂停
+                audio.pause();
+                isPlaying = false;
+                tonearm.classList.add('up');
+                tonearm.classList.remove('down');
+                // 保留 spin 类，仅暂停动画
+                record.style.animationPlayState = 'paused';
+            } else {
+                // 播放（确保当前音频 src 正确）
+                audio.play()
+                    .then(() => {
+                        isPlaying = true;
+                        tonearm.classList.remove('up');
+                        tonearm.classList.add('down');
+        	        if (!record.classList.contains('spin')) {
+           	             record.classList.add('spin');
+           	        }
+         	        record.style.animationPlayState = 'running';
+     	    })
+                    .catch(error => {
+                        // 播放失败，弹出提示（帮助调试）
+                        alert('播放失败：' + error.message + '\n请检查音频文件路径和文件名是否正确。');
+                        console.error(error);
+                    });
+            }
+        });
+
+
+
+        // 可选：如果音频加载失败，给出提示（404 等）
+        audio.addEventListener('error', function(e) {
+            console.error('音频加载错误', e);
+            alert('音频文件加载失败，请检查文件名：' + audio.src);
+        });
+    </script>
+</body>
+</html>
